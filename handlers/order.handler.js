@@ -20,6 +20,7 @@ const {
     sendLocationRequest,
     sendOrderSummary,
     sendOrderConfirmation,
+    sendOrderConfirmationTemplate,
     sendOwnerAlert,
 } = require('../utils/whatsapp.util');
 
@@ -219,13 +220,23 @@ const handleConfirmOrder = async (sender, session) => {
 
         console.log(`✅ Order saved: ${orderId} | ₹${totalAmount} | ${session.customerName}`);
 
-        // Send confirmation to customer
-        await sendOrderConfirmation(
-            sender,
-            orderId,
-            totalAmount,
-            session.deliveryInfo?.isFree
-        );
+        // Send confirmation to customer (template with name, fallback to plain text)
+        try {
+            await sendOrderConfirmationTemplate(
+                sender,
+                session.customerName || 'Customer',
+                orderId,
+                totalAmount
+            );
+        } catch (e) {
+            console.warn('⚠️ Template confirmation failed, using plain text fallback');
+            await sendOrderConfirmation(
+                sender,
+                orderId,
+                totalAmount,
+                session.deliveryInfo?.isFree
+            );
+        }
 
         // Send template alert to owner
         await sendOwnerAlert(orderData);

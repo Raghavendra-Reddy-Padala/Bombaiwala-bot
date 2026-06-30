@@ -288,23 +288,42 @@ const sendOrderSummary = async (to, cart, customerName, deliveryInfo) => {
 };
 
 // ─────────────────────────────────────────────
-// ORDER CONFIRMATION (after saving to Firebase)
+// ORDER CONFIRMATION — send template to customer
 // ─────────────────────────────────────────────
 const sendOrderConfirmation = async (to, orderId, total, isFreeDelivery) => {
-    const deliveryMsg = isFreeDelivery
-        ? '🟢 Delivery: *FREE* (you\'re within 2 km!)'
-        : '🔴 Delivery charge will be collected via Rapido.';
+    const templateName = process.env.TEMPLATE_ORDER_CONFIRMATION || 'order_confirmation';
+    const customerName = 'Customer'; // Will be overridden by the overload below
 
-    await sendReply(
-        to,
-        `🎉 *Order Placed Successfully!*\n\n` +
-        `🔖 Order ID: *${orderId}*\n` +
-        `💰 Total: *₹${total}*\n` +
-        `${deliveryMsg}\n\n` +
-        `⏰ Your order is being prepared! We'll have it ready soon.\n\n` +
-        `Thank you for choosing *Bombaiwala Chat*! 🙏\n\n` +
-        `Type *hi* to order again.`
-    );
+    // Try sending template first (works outside 24-hour window)
+    try {
+        await sendTemplate(to, templateName, 'en', [customerName, orderId, String(total)]);
+        console.log(`✅ Order confirmation template sent to ${to}`);
+    } catch (e) {
+        // Fallback to plain text (only works within 24-hour window)
+        console.warn(`⚠️ Template failed, falling back to plain text for ${to}`);
+        const deliveryMsg = isFreeDelivery
+            ? '🟢 Delivery: *FREE* (you\'re within 2 km!)'
+            : '🔴 Delivery charge will be collected via Rapido.';
+
+        await sendReply(
+            to,
+            `🎉 *Order Placed Successfully!*\n\n` +
+            `🔖 Order ID: *${orderId}*\n` +
+            `💰 Total: *₹${total}*\n` +
+            `${deliveryMsg}\n\n` +
+            `⏰ Your order is being prepared! We'll have it ready soon.\n\n` +
+            `Thank you for choosing *Bombaiwala Chat*! 🙏\n\n` +
+            `Type *hi* to order again.`
+        );
+    }
+};
+
+// ─────────────────────────────────────────────
+// ORDER CONFIRMATION (with customer name) — template version
+// ─────────────────────────────────────────────
+const sendOrderConfirmationTemplate = async (to, customerName, orderId, totalAmount) => {
+    const templateName = process.env.TEMPLATE_ORDER_CONFIRMATION || 'order_confirmation';
+    await sendTemplate(to, templateName, 'en', [customerName, orderId, String(totalAmount)]);
 };
 
 // ─────────────────────────────────────────────
@@ -314,45 +333,115 @@ const sendOwnerAlert = async (orderData) => {
     const ownerPhone = process.env.OWNER_PHONE;
     console.log(`\n🔔 ── OWNER ALERT ──`);
     console.log(`   OWNER_PHONE from .env: "${ownerPhone}"`);
-    console.log(`   OWNER_PHONE type: ${typeof ownerPhone}`);
-    console.log(`   OWNER_PHONE length: ${ownerPhone?.length}`);
 
     if (!ownerPhone) {
         console.warn('⚠️ OWNER_PHONE not set in .env — skipping owner alert');
         return;
     }
 
-    const templateName = process.env.ORDER_CONFIRM || 'appointment_confirmation';
-    console.log(`   Template name: "${templateName}"`);
-
-    // Build a summary string for the template body parameter
-    const itemLines = orderData.items
-        .map((item, i) => `${i + 1}. ${item.name} ×${item.qty} = ₹${item.total}`)
+    // Build items summary string for template
+    const itemsSummary = orderData.items
+        .map(item => `${item.qty}x ${item.name}`)
         .join(', ');
 
-    const deliveryText = orderData.deliveryType === 'free'
-        ? 'FREE'
-        : `₹${orderData.deliveryFee} Rapido`;
+    const templateName = process.env.TEMPLATE_ORDER_RECEIVED || 'order_received';
 
-    // Send direct message
-    const orderSummaryMsg = `🔔 *NEW ORDER RECEIVED!*\n\n` +
-        `🔖 Order ID: *${orderData.orderId}*\n` +
-        `👤 Customer: ${orderData.customerName}\n` +
-        `📞 Phone: +${orderData.customerPhone}\n\n` +
-        `🛒 *Items:*\n${orderData.items.map((item, i) => `  ${i + 1}. ${item.name} × ${item.qty} = ₹${item.total}`).join('\n')}\n\n` +
-        `💰 Subtotal: ₹${orderData.subtotal}\n` +
-        `🚚 Delivery: ${deliveryText}\n` +
-        `━━━━━━━━━━━━━━━━\n` +
-        `🏷️ *Total: ₹${orderData.totalAmount}*\n\n` +
-        `📍 Location: ${orderData.location ? `https://maps.google.com/?q=${orderData.location.lat},${orderData.location.lng}` : 'Not shared'}\n\n` +
-        `⏰ ${new Date(orderData.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
+    // Try template first (works outside 24-hour window)
+    try {
+        await sendTemplate(ownerPhone, templateName, 'en', [
+            orderData.orderId,
+            orderData.customerName,
+            itemsSummary,
+            String(orderData.totalAmount),
+        ]);
+        console.log(`✅ Owner alert template sent for order ${orderData.orderId}`);
+    } catch (e) {
+        // Fallback to plain text (only works within 24-hour window)
+        console.warn(`⚠️ Template failed, falling back to plain text for owner`);
+        const deliveryText = orderData.deliveryType === 'free'
+            ? 'FREE'
+            : `₹${orderData.deliveryFee} Rapido`;
 
-    console.log(`   Attempting to send direct message to owner...`);
-    console.log(`   IMPORTANT: If the owner has not messaged the bot in the last 24 hours, WhatsApp may block this message.`);
+        const orderSummaryMsg = `🔔 *NEW ORDER RECEIVED!*\n\n` +
+            `🔖 Order ID: *${orderData.orderId}*\n` +
+            `👤 Customer: ${orderData.customerName}\n` +
+            `📞 Phone: +${orderData.customerPhone}\n\n` +
+            `🛒 *Items:*\n${orderData.items.map((item, i) => `  ${i + 1}. ${item.name} × ${item.qty} = ₹${item.total}`).join('\n')}\n\n` +
+            `💰 Subtotal: ₹${orderData.subtotal}\n` +
+            `🚚 Delivery: ${deliveryText}\n` +
+            `━━━━━━━━━━━━━━━━\n` +
+            `🏷️ *Total: ₹${orderData.totalAmount}*\n\n` +
+            `📍 Location: ${orderData.location ? `https://maps.google.com/?q=${orderData.location.lat},${orderData.location.lng}` : 'Not shared'}\n\n` +
+            `⏰ ${new Date(orderData.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
 
-    await sendReply(ownerPhone, orderSummaryMsg);
+        await sendReply(ownerPhone, orderSummaryMsg);
+    }
 
     console.log(`📢 Owner alert completed for order ${orderData.orderId}`);
+};
+
+// ─────────────────────────────────────────────
+// ORDER RECEIVED TEMPLATE — send to owner (standalone)
+// ─────────────────────────────────────────────
+const sendOrderReceivedTemplate = async (to, orderId, customerName, itemsSummary, totalAmount) => {
+    const templateName = process.env.TEMPLATE_ORDER_RECEIVED || 'order_received';
+    await sendTemplate(to, templateName, 'en', [orderId, customerName, itemsSummary, String(totalAmount)]);
+};
+
+// ─────────────────────────────────────────────
+// TRACKING UPDATE — send tracking link template to customer
+// ─────────────────────────────────────────────
+const sendTrackingUpdate = async (to, customerName, orderId, trackingLink) => {
+    const templateName = process.env.TEMPLATE_TRACKING_UPDATE || 'tracking_update';
+    await sendTemplate(to, templateName, 'en', [customerName, orderId, trackingLink]);
+    console.log(`📦 Tracking update sent to ${to} for order ${orderId}`);
+};
+
+// ─────────────────────────────────────────────
+// SEND OTP — send verification_code authentication template
+// ─────────────────────────────────────────────
+const sendOTP = async (to, otp) => {
+    try {
+        const payload = {
+            messaging_product: 'whatsapp',
+            to,
+            type: 'template',
+            template: {
+                name: 'verification_code',
+                language: { code: 'en' },
+                components: [
+                    {
+                        type: 'body',
+                        parameters: [
+                            {
+                                type: 'text',
+                                text: otp,
+                            },
+                        ],
+                    },
+                    {
+                        type: 'button',
+                        sub_type: 'url',
+                        index: '0',
+                        parameters: [
+                            {
+                                type: 'text',
+                                text: otp,
+                            },
+                        ],
+                    },
+                ],
+            },
+        };
+
+        console.log(`🔐 Sending OTP to ${to}...`);
+        const response = await axios.post(WA_API, payload, { headers: HEADERS });
+        console.log(`✅ OTP template sent to ${to}`);
+        return { success: true, data: response.data };
+    } catch (e) {
+        console.error('❌ sendOTP failed:', e.response?.data || e.message);
+        return { success: false, error: e.response?.data || e.message };
+    }
 };
 
 module.exports = {
@@ -366,5 +455,9 @@ module.exports = {
     sendLocationRequest,
     sendOrderSummary,
     sendOrderConfirmation,
+    sendOrderConfirmationTemplate,
     sendOwnerAlert,
+    sendOrderReceivedTemplate,
+    sendTrackingUpdate,
+    sendOTP,
 };
