@@ -29,13 +29,23 @@ const handleWebOrder = async (req, res) => {
             phone = '91' + phone;
         }
 
-        // 1. Send confirmation to the customer's WhatsApp (template-based)
-        await sendOrderConfirmation(
-            phone,
-            orderData.orderId,
-            orderData.totalAmount,
-            orderData.deliveryType === 'free'
-        );
+        // 1. Send confirmation to the customer's WhatsApp (template with name, fallback to plain text)
+        try {
+            await sendOrderConfirmationTemplate(
+                phone,
+                orderData.customerName || 'Customer',
+                orderData.orderId,
+                orderData.totalAmount
+            );
+        } catch (e) {
+            console.warn('⚠️ Template failed, falling back to plain text confirmation');
+            await sendOrderConfirmation(
+                phone,
+                orderData.orderId,
+                orderData.totalAmount,
+                orderData.deliveryType === 'free'
+            );
+        }
 
         // 2. Send the owner alert via WhatsApp template message
         await sendOwnerAlert(orderData);
