@@ -1,7 +1,4 @@
-/**
- * GPT Utility — Natural language order parsing using OpenAI.
- * Takes the user's free-text order and matches it to menu items.
- */
+
 
 const OpenAI = require('openai');
 const { getMenuTextForGPT, getAllItems } = require('../data/menu');
@@ -77,7 +74,7 @@ If the message doesn't seem like a food order at all, return:
                         m.name.toLowerCase().includes(item.name?.toLowerCase()?.split(' ')[0] || '') ||
                         item.name?.toLowerCase()?.includes(m.name.toLowerCase().split(' ')[0] || '')
                     );
-                    if (fuzzyMatch) {
+                    if (fuzzyMatch)   {
                         validatedCart.push({
                             id: fuzzyMatch.id,
                             name: fuzzyMatch.name,
