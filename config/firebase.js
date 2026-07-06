@@ -9,6 +9,7 @@ const {
     updateDoc,
     deleteDoc,
     query,
+    where,
     orderBy,
     onSnapshot,
     serverTimestamp,
@@ -37,7 +38,9 @@ module.exports = {
     deleteDoc,
     collection,
     query,
+    where,
     orderBy,
     onSnapshot,
     serverTimestamp,
 };
+

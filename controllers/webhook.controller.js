@@ -30,7 +30,7 @@ exports.verifyWebhook = (req, res) => {
 exports.handleWebhook = async (req, res) => {
     // Respond to Meta immediately (must be fast)
     res.sendStatus(200);
-
+    
     try {
         const body = req.body;
 

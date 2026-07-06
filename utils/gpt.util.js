@@ -1,12 +1,35 @@
 /**
  * GPT Utility — Natural language order parsing using OpenAI.
- * Takes the user's free-text order and matches it to menu items.
+ * Takes the user's free-text order and matches it to live Firestore items.
  */
 
 const OpenAI = require('openai');
-const { getMenuTextForGPT, getAllItems } = require('../data/menu');
+const { db, collection, getDocs } = require('../config/firebase');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+/**
+ * Helper: Fetches live Firestore items and formats them into plain text for the OpenAI system context.
+ */
+const getLiveMenuTextForGPT = async () => {
+    try {
+        const productsRef = collection(db, 'products'); 
+        const snapshot = await getDocs(productsRef);
+        
+        let text = 'BOMBAIWALA LIVE MENU:\n\n';
+        
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            const price = data.sellingPrice || data.price || 0;
+            text += `  - "${data.name}" (ID: ${doc.id}) — ₹${price} [Brand: ${data.brand || 'chaat'}]\n`;
+        });
+        
+        return text;
+    } catch (error) {
+        console.error('❌ Failed to construct menu context from Firestore:', error);
+        return 'Menu temporarily unavailable.';
+    }
+};
 
 /**
  * Parse a natural language order into structured cart items.
@@ -14,21 +37,20 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
  * @returns {{ success: boolean, cart?: Array<{id, name, price, qty}>, message?: string }}
  */
 const parseOrderText = async (userText) => {
-    const menuText = getMenuTextForGPT();
-    const allItems = getAllItems();
+    // 1. Fetch live text schema snapshot directly from Firestore collections
+    const menuText = await getLiveMenuTextForGPT();
 
     const systemPrompt = `You are an order-taking assistant for Bombaiwala, a street food restaurant.
 Your job is to parse the customer's message into a structured order.
 
-Here is the complete menu:
+Here is the complete live menu from our database:
 ${menuText}
 
 RULES:
 1. Match the customer's text to items on the menu. Be flexible with naming — "pav bhaji" matches "Pav Bhaji (Butter)", "cheese vp" matches "Cheese Grill Vada Pav", etc.
-2. If a customer says just a category name (e.g., "pav bhaji"), default to the basic variant.
-3. Extract quantities. If no quantity is mentioned, assume 1.
-4. If an item cannot be matched to ANY menu item, include it in an "unmatched" array.
-5. Return ONLY valid JSON, no markdown or explanation.
+2. Extract quantities. If no quantity is mentioned, assume 1.
+3. If an item cannot be matched to ANY menu item, include it in an "unmatched" array.
+4. Return ONLY valid JSON, no markdown or explanation.
 
 RESPONSE FORMAT (strict JSON):
 {
@@ -56,51 +78,18 @@ If the message doesn't seem like a food order at all, return:
         const content = response.choices[0].message.content;
         const parsed = JSON.parse(content);
 
-        // Validate matched items against actual menu
         if (parsed.matched && parsed.matched.length > 0) {
-            const validatedCart = [];
-            const newUnmatched = parsed.unmatched || [];
-
-            for (const item of parsed.matched) {
-                // Verify the item ID exists in our menu
-                const menuItem = allItems.find(m => m.id === item.id);
-                if (menuItem) {
-                    validatedCart.push({
-                        id: menuItem.id,
-                        name: menuItem.name,
-                        price: menuItem.price,
-                        qty: Math.min(Math.max(parseInt(item.qty) || 1, 1), 20),
-                    });
-                } else {
-                    // GPT gave a wrong ID — try fuzzy match by name
-                    const fuzzyMatch = allItems.find(m =>
-                        m.name.toLowerCase().includes(item.name?.toLowerCase()?.split(' ')[0] || '') ||
-                        item.name?.toLowerCase()?.includes(m.name.toLowerCase().split(' ')[0] || '')
-                    );
-                    if (fuzzyMatch) {
-                        validatedCart.push({
-                            id: fuzzyMatch.id,
-                            name: fuzzyMatch.name,
-                            price: fuzzyMatch.price,
-                            qty: Math.min(Math.max(parseInt(item.qty) || 1, 1), 20),
-                        });
-                    } else {
-                        newUnmatched.push(item.name || 'unknown item');
-                    }
-                }
-            }
-
-            if (validatedCart.length === 0) {
-                return {
-                    success: false,
-                    message: '⚠️ Sorry, I couldn\'t match any of those items to our menu. Could you try again? For example:\n\n_"2 pav bhaji, 1 cheese sandwich"_',
-                };
-            }
+            const validatedCart = parsed.matched.map(item => ({
+                id: item.id,
+                name: item.name,
+                price: parseInt(item.price) || 0,
+                qty: Math.min(Math.max(parseInt(item.qty) || 1, 1), 20),
+            }));
 
             return {
                 success: true,
                 cart: validatedCart,
-                unmatched: newUnmatched.length > 0 ? newUnmatched : undefined,
+                unmatched: parsed.unmatched && parsed.unmatched.length > 0 ? parsed.unmatched : undefined,
             };
         }
 
