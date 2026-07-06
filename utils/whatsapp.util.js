@@ -346,6 +346,11 @@ const sendOwnerAlert = async (orderData) => {
 
     const templateName = process.env.TEMPLATE_ORDER_RECEIVED || 'order_received';
 
+    // Build location link
+    const locationLink = orderData.location
+        ? `https://maps.google.com/?q=${orderData.location.lat},${orderData.location.lng}`
+        : 'Not shared';
+
     // Try template first (works outside 24-hour window)
     try {
         await sendTemplate(ownerPhone, templateName, 'en', [
@@ -353,6 +358,8 @@ const sendOwnerAlert = async (orderData) => {
             orderData.customerName,
             itemsSummary,
             String(orderData.totalAmount),
+            locationLink,
+            String(orderData.customerPhone || ''),
         ]);
         console.log(`✅ Owner alert template sent for order ${orderData.orderId}`);
     } catch (e) {
@@ -383,9 +390,9 @@ const sendOwnerAlert = async (orderData) => {
 // ─────────────────────────────────────────────
 // ORDER RECEIVED TEMPLATE — send to owner (standalone)
 // ─────────────────────────────────────────────
-const sendOrderReceivedTemplate = async (to, orderId, customerName, itemsSummary, totalAmount) => {
+const sendOrderReceivedTemplate = async (to, orderId, customerName, itemsSummary, totalAmount, locationLink, customerPhone) => {
     const templateName = process.env.TEMPLATE_ORDER_RECEIVED || 'order_received';
-    await sendTemplate(to, templateName, 'en', [orderId, customerName, itemsSummary, String(totalAmount)]);
+    await sendTemplate(to, templateName, 'en', [orderId, customerName, itemsSummary, String(totalAmount), locationLink || 'Not shared', String(customerPhone || '')]);
 };
 
 // ─────────────────────────────────────────────

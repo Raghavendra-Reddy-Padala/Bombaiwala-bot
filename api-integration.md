@@ -28,11 +28,6 @@ This guide documents how WhatsApp template messages and OTP verification are int
 
 ---
 
-## WhatsApp Templates
-
-### What Are Templates?
-WhatsApp Business templates are pre-approved message formats that can be sent to users **even outside the 24-hour messaging window**. They must be created and approved in Meta's WhatsApp Manager before they can be used by the API.
-
 ### Template Summary
 
 | Template Name          | Category       | Sent To    | Triggered By                    | Parameters                                           |
@@ -42,11 +37,7 @@ WhatsApp Business templates are pre-approved message formats that can be sent to
 | `tracking_update`    | UTILITY        | Customer   | Admin sends tracking link      | `{{1}}` name, `{{2}}` orderId, `{{3}}` trackingLink |
 | `verification_code`  | AUTHENTICATION | Customer   | OTP request from frontend      | Auto-managed by Meta (OTP in body)                   |
 
-### How to Create Templates
 
-See **`WHATSAPP_TEMPLATES_SETUP.txt`** in the project root for exact template creation steps.
-
----
 
 ## API Endpoints (Bot Server)
 

@@ -1,2 +1,5 @@
 node_modules/
 .env
+
+vps_deployment_guide.md
+vps.txt
