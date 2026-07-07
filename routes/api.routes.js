@@ -15,9 +15,33 @@ const {
 } = require('../controllers/user_order.controller');
 
 // Import your raw menu data module
-const { db, collection, getDocs } = require('../config/firebase');
+const { db, collection, getDocs, doc, getDoc } = require('../config/firebase');
 
 const router = express.Router();
+
+router.get('/settings/delivery', async (req, res) => {
+    try {
+        const docRef = doc(db, 'settings', 'delivery');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return res.status(200).json({ success: true, settings: docSnap.data() });
+        }
+        // Fallback default settings
+        return res.status(200).json({
+            success: true,
+            settings: {
+                freeDeliveryThreshold: 0,
+                deliveryFee: 30,
+                maxRadius: 2,
+                shopLat: 17.454082489013672,
+                shopLng: 78.43592071533203
+            }
+        });
+    } catch (error) {
+        console.error("❌ Failed to fetch delivery settings:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch settings" });
+    }
+});
 
 router.get('/categories', async (req, res) => {
     try {

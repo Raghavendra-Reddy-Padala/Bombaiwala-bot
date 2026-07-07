@@ -10,6 +10,7 @@ const cors = require('cors');
 // Routes
 const webhookRoutes = require('./routes/webhook.routes');
 const apiRoutes = require('./routes/api.routes');
+const rateLimit = require('./middlewares/rateLimiter');
 
 // Utils
 const { uploadMenuImage } = require('./utils/whatsapp.util');
@@ -19,6 +20,13 @@ const app = express();
 // Global middleware
 app.use(express.json());
 app.use(cors());
+
+// Apply global rate limiting to protect endpoints
+app.use(rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 200, // Limit each IP to 200 requests per window
+    message: 'Too many requests from this IP. Please try again after 15 minutes.'
+}));
 
 // WhatsApp webhook routes
 app.use('/', webhookRoutes);

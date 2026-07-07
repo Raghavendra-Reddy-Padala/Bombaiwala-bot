@@ -16,6 +16,8 @@ const {
 const { calculateDeliveryFee } = require("../utils/distance.util");
 const { db, doc, setDoc, collection } = require("../config/firebase");
 const { parseOrderText } = require("../utils/gpt.util");
+const { generateOrderId } = require("../utils/order.util");
+
 const {
   sendReply,
   sendWelcome,
@@ -180,7 +182,17 @@ const handleLocation = async (sender, message, session) => {
     return;
   }
 
-  const deliveryInfo = calculateDeliveryFee(lat, lng);
+  const subtotal = session.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+  const deliveryInfo = await calculateDeliveryFee(lat, lng, subtotal);
+
+  if (deliveryInfo.outOfRange) {
+    await sendReply(
+      sender,
+      `⚠️ Sorry, we only deliver within a ${deliveryInfo.maxRadius} km radius of our shop. Your location is ${deliveryInfo.distanceKm} km away. Please try sharing a location closer to us or check out on our website.`,
+    );
+    return;
+  }
+
 
   setSession(sender, {
     state: "awaiting_confirm",
@@ -207,7 +219,7 @@ const handleConfirmOrder = async (sender, session) => {
     const deliveryFee = session.deliveryInfo?.deliveryFee || 0;
     const totalAmount = subtotal + deliveryFee;
 
-    const orderId = `BW-${Date.now()}`;
+    const orderId = await generateOrderId();
 
     const orderData = {
       orderId,

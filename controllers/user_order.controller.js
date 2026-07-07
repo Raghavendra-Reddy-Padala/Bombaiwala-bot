@@ -2,6 +2,7 @@ const { db, doc, getDoc, setDoc, getDocs, collection, query, where, orderBy, ser
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const { sendOwnerAlert, sendOrderConfirmationTemplate } = require('../utils/whatsapp.util');
+const { generateOrderId } = require('../utils/order.util');
 
 // Initialize Razorpay Instance
 const razorpay = new Razorpay({
@@ -47,26 +48,54 @@ const checkUserRegistration = async (req, res) => {
  */
 const completeProfile = async (req, res) => {
     try {
-        const { phone, name, latitude, longitude } = req.body;
-        if (!phone || !name || !latitude || !longitude) {
+        const { phone, name, latitude, longitude, address, saveAddress } = req.body;
+        if (!phone || !name || !latitude || !longitude || !address) {
             return res.status(400).json({ success: false, error: 'Missing profile parameters' });
         }
 
         let cleanPhone = phone.replace(/[^0-9]/g, '');
         if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
 
+        const userRef = doc(collection(db, 'customers'), cleanPhone);
+        const userSnap = await getDoc(userRef);
+
+        let savedAddresses = [];
+        let existingName = name;
+        
+        if (userSnap.exists()) {
+            const userData = userSnap.data();
+            savedAddresses = userData.savedAddresses || [];
+            if (!name) existingName = userData.name || 'Customer';
+        }
+
+        // Add to saved addresses if requested and not duplicate
+        const isDuplicate = savedAddresses.some(
+            a => a.addressLine.toLowerCase().trim() === address.toLowerCase().trim()
+        );
+        if (saveAddress && !isDuplicate) {
+            savedAddresses.push({
+                id: `addr_${Date.now()}`,
+                addressLine: address,
+                coordinates: {
+                    lat: parseFloat(latitude),
+                    lng: parseFloat(longitude)
+                }
+            });
+        }
+
         const profileData = {
             phone: cleanPhone,
-            name,
+            name: existingName,
+            address,
             coordinates: {
                 lat: parseFloat(latitude),
                 lng: parseFloat(longitude)
             },
-            createdAt: new Date().toISOString()
+            savedAddresses,
+            updatedAt: new Date().toISOString()
         };
 
-        const userRef = doc(collection(db, 'customers'), cleanPhone);
-        await setDoc(userRef, profileData);
+        await setDoc(userRef, profileData, { merge: true });
 
         return res.status(200).json({ success: true, user: profileData });
     } catch (error) {
@@ -136,7 +165,7 @@ const verifyRazorpayPayment = async (req, res) => {
             return res.status(400).json({ success: false, error: 'Payment signature validation failed' });
         }
 
-        const orderId = `BW-${Date.now()}`;
+        const orderId = await generateOrderId();
         
         // Structure complete final order context record
         const completeFinalOrder = {
