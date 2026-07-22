@@ -64,6 +64,18 @@ router.get('/products', async (req, res) => {
     }
 });
 
+// Route to get all combos
+router.get('/combos', async (req, res) => {
+    try {
+        const snapshot = await getDocs(collection(db, 'combos'));
+        const combos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.status(200).json({ success: true, combos });
+    } catch (error) {
+        console.error("❌ Failed to fetch combos:", error);
+        res.status(500).json({ success: false, error: "Failed to fetch combos" });
+    }
+});
+
 router.get('/menu', async (req, res) => {
     try {
         // Change 'products' to your actual Firestore collection name if it is different
