@@ -180,6 +180,7 @@ const verifyRazorpayPayment = async (req, res) => {
             totalAmount: orderDetails.totalAmount,
             deliveryType: orderDetails.deliveryFee === 0 ? 'free' : 'rapido',
             location: orderDetails.location, // Contains coordinate mapping pairs
+            address: orderDetails.address || '', // Text address for delivery
             status: 'paid', // Order verified and paid successfully
             paymentStatus: 'success',
             createdAt: new Date().toISOString()

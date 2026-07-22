@@ -41,11 +41,10 @@ const handleMessage = async (sender, msgType, message) => {
     const text = message.text.body.trim();
     const lower = text.toLowerCase();
 
-    // Greeting → restart flow
+    // Greeting → send simple welcome, stay idle
     if (["hi", "hello", "hey", "start", "menu"].includes(lower)) {
       clearSession(sender);
       await sendWelcome(sender);
-      setSession(sender, { state: "awaiting_order_text", cart: [] });
       return;
     }
 
@@ -63,9 +62,8 @@ const handleMessage = async (sender, msgType, message) => {
       case "awaiting_name":
         return await handleName(sender, text, session);
       default:
-        // Unknown text → show welcome with menu
-        await sendWelcome(sender);
-        setSession(sender, { state: "awaiting_order_text", cart: [] });
+        // Unknown text → ask user to type hi or hello
+        await sendReply(sender, "Please type *hi* or *hello* to get started 😊");
         return;
     }
   }
@@ -237,6 +235,7 @@ const handleConfirmOrder = async (sender, session) => {
       deliveryType: session.deliveryInfo?.isFree ? "free" : "rapido",
       distanceKm: session.deliveryInfo?.distanceKm || 0,
       location: session.location || null,
+      address: session.address || '',
       status: "pending",
       createdAt: new Date().toISOString(),
     };
@@ -279,8 +278,8 @@ const handleConfirmOrder = async (sender, session) => {
     await sendReply(
       sender,
       "😔 Something went wrong saving your order.\n" +
-        "Please try again or call us directly.\n\n" +
-        "Type *hi* to start over.",
+      "Please try again or call us directly.\n\n" +
+      "Type *hi* to start over.",
     );
     clearSession(sender);
   }

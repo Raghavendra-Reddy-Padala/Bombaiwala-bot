@@ -136,40 +136,15 @@ const sendTemplate = async (to, templateName, languageCode, bodyParams = []) => 
 };
 
 // ─────────────────────────────────────────────
-// WELCOME MESSAGE — send menu image + ordering instructions
+// WELCOME MESSAGE — simple greeting + website link
 // ─────────────────────────────────────────────
 const sendWelcome = async (to) => {
     try {
-        // Send the menu image with instructions
-        if (menuMediaId) {
-            await sendImage(to, {
-                mediaId: menuMediaId,
-                caption:
-                    '*Welcome to Bombaiwala Chat!* \n\n' +
-                    ' Here\'s our full menu! 👆\n\n' +
-                    'Just type what you\'d like to order with quantities.\n\n' +
-                    '📝 *Example:*\n' +
-                    '_"2 pav bhaji, 1 cheese sandwich, 3 vada pav"_\n\n' +
-                    '💡 You can type item names in any way — we\'ll figure it out!\n\n' +
-                    '🌐 For a great intuitive experience, you can also order from our website: *bombaiwala.com*\n\n' +
-                    'Type *cancel* anytime to start over.',
-            });
-        } else {
-            // Fallback if menu image upload failed
-            await sendReply(to,
-                ' *Welcome to Bombaiwala Chat!* \n\n' +
-                ' Hyderabad\'s favourite street food — Pav Bhaji, Chaat, Sandwiches & more!\n\n' +
-                '📝 Just type what you\'d like to order with quantities.\n\n' +
-                '*Example:*\n' +
-                '_"2 pav bhaji, 1 cheese sandwich, 3 vada pav"_\n\n' +
-                '📋 *Our Menu:*\n' +
-                '🥣 Paani Puri | 🍔 Vada Pav | 🍛 Pav Bhaji\n' +
-                '🧺 Basket Chaat | 🥗 Bhel | 🥔 Tikki & Chaat\n' +
-                '🥛 Dahi Specials | 🥪 Sandwiches\n\n' +
-                '💡 Type item names in any way — we\'ll figure it out!\n\n' +
-                '🌐 For a great intuitive experience, you can also order from our website: *bombaiwala.com*'
-            );
-        }
+        await sendReply(to,
+            '*Hey there! Welcome to Bombaiwala* 🙏\n\n' +
+            'Hyderabad\'s favourite street food!\n\n' +
+            '🌐 Order from our website: *bombaiwala.com*'
+        );
     } catch (e) {
         console.error('❌ sendWelcome failed:', e.response?.data || e.message);
     }
@@ -360,6 +335,7 @@ const sendOwnerAlert = async (orderData) => {
             String(orderData.totalAmount),
             locationLink,
             String(orderData.customerPhone || ''),
+            orderData.address || 'Not shared',
         ]);
         console.log(`✅ Owner alert template sent for order ${orderData.orderId}`);
     } catch (e) {
@@ -390,9 +366,9 @@ const sendOwnerAlert = async (orderData) => {
 // ─────────────────────────────────────────────
 // ORDER RECEIVED TEMPLATE — send to owner (standalone)
 // ─────────────────────────────────────────────
-const sendOrderReceivedTemplate = async (to, orderId, customerName, itemsSummary, totalAmount, locationLink, customerPhone) => {
+const sendOrderReceivedTemplate = async (to, orderId, customerName, itemsSummary, totalAmount, locationLink, customerPhone, address) => {
     const templateName = process.env.TEMPLATE_ORDER_RECEIVED || 'order_received';
-    await sendTemplate(to, templateName, 'en', [orderId, customerName, itemsSummary, String(totalAmount), locationLink || 'Not shared', String(customerPhone || '')]);
+    await sendTemplate(to, templateName, 'en', [orderId, customerName, itemsSummary, String(totalAmount), locationLink || 'Not shared', String(customerPhone || ''), address || 'Not shared']);
 };
 
 // ─────────────────────────────────────────────

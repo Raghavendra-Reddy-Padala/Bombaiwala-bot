@@ -33,7 +33,7 @@ This guide documents how WhatsApp template messages and OTP verification are int
 | Template Name          | Category       | Sent To    | Triggered By                    | Parameters                                           |
 |----------------------|----------------|------------|--------------------------------|------------------------------------------------------|
 | `order_confirmation` | UTILITY        | Customer   | Order placement (bot or web)   | `{{1}}` name, `{{2}}` orderId, `{{3}}` total        |
-| `order_received`     | UTILITY        | Owner      | Order placement (bot or web)   | `{{1}}` orderId, `{{2}}` name, `{{3}}` items, `{{4}}` total |
+| `order_received`     | UTILITY        | Owner      | Order placement (bot or web)   | `{{1}}` orderId, `{{2}}` name, `{{3}}` items, `{{4}}` total, `{{5}}` locationLink, `{{6}}` phone, `{{7}}` address |
 | `tracking_update`    | UTILITY        | Customer   | Admin sends tracking link      | `{{1}}` name, `{{2}}` orderId, `{{3}}` trackingLink |
 | `verification_code`  | AUTHENTICATION | Customer   | OTP request from frontend      | Auto-managed by Meta (OTP in body)                   |
 
